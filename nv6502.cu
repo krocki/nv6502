@@ -1,3 +1,7 @@
+// nv6502.cu
+// A GPU implementation of a 6502 CPU emulator
+// Kamil M Rocki, 1/24/19
+
 #include "nv6502.h"
 #include <stdio.h>
 #include <sys/time.h>

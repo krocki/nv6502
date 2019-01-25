@@ -1,3 +1,6 @@
+// nv6502.h
+// Kamil M Rocki, 1/24/19
+
 #include "typedefs.h"
 
 // a struct holding the complete state of one 6502 core
