@@ -1,19 +1,20 @@
 #include "typedefs.h"
 
+// a struct holding the complete state of one 6502 core
 typedef struct {
   // regs
   u8 A; u8 X; u8 Y; u8 SP;
-  u16 PC;
+  u16 PC; // program counter
   union {
     struct { u8 C:1; u8 Z:1; u8 I:1; u8 D:1; u8 B:1; u8 u:1; u8 V:1; u8 S:1;};
     u8 P; // flags
   };
-  u8  mem[0x10000]; // 64kB of mem space
-  u64 cyc;
-  u8  op;
-  u8  op_mode;
-  u8  op_bytes;
-  u16 operand;
+  u8  mem[0x10000]; // 64kB of private mem space
+  u64 cyc;          // cycle counter
+  u8  op;           // current opcode
+  u8  op_mode;      // current addressing mode
+  u8  op_bytes;     // how many arg bytes to fetch?
+  u16 operand;      // arg bytes
 
 } _6502;
 
@@ -35,10 +36,3 @@ typedef struct {
 #define  m (n->op_mode)
 #define  b (n->op_bytes)
 #define  d (n->operand)
-
-
-extern void reset(u16,u8);
-extern void cpu_step(u32);
-extern u8 r8(u16);
-extern u8 limit_speed;
-extern u8 show_debug;
