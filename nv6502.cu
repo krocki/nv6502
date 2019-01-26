@@ -7,6 +7,18 @@
 #include <sys/time.h>
 #define CHECK_ERR_CUDA(err) if (err != cudaSuccess) { printf("%s\n", cudaGetErrorString(err)); exit(EXIT_FAILURE); }
 
+int read_bin(u8* mem, const char* fname) {
+  FILE * file = fopen(fname, "r+");
+  if (file == NULL || mem == NULL) return - 1;
+  fseek(file, 0, SEEK_END);
+  long int size = ftell(file);
+  fclose(file);
+  file = fopen(fname, "r+");
+  int bytes_read = fread(mem, sizeof(u8), size, file);
+  printf("read file %s, %d bytes\n", fname, bytes_read);
+  return 0; fclose(file);
+}
+
 double get_time() {
   struct timeval tv; gettimeofday(&tv, NULL);
   return (tv.tv_sec + tv.tv_usec * 1e-6);
@@ -179,26 +191,20 @@ __global__ void step(_6502* states, int steps, int num_threads) {
   }
 }
 
-u8 prg[]= {
-  0xa2,0x00,0xa9,0x00,0x85,0x00,0xa9,0x02,0x85,0x01,0x20,0x1f,0x06,0x81,0x00,0xe6,
-  0x00,0xf0,0x03,0x4c,0x0a,0x06,0xe6,0x01,0xa4,0x01,0xc0,0x06,0xd0,0xec,0x60,0xa5,
-  0x00,0x29,0x1f,0x85,0x02,0xa5,0x00,0x4a,0x4a,0x4a,0x4a,0x4a,0x85,0x03,0xa5,0x01,
-  0x38,0xe9,0x02,0x0a,0x0a,0x0a,0x05,0x03,0x25,0x02,0xf0,0x03,0xa9,0x02,0x60,0xa9,
-  0x0d,0x60}; // 66B
-
 void reset(_6502 *n, u16 _PC, u8 _SP) {
   PC=_PC; A=0x00; X=0x00; P=0x24; SP=_SP; CY=0; memset(n->mem, '\0', 0x10000);
+}
+
+// wrapper for CUDA call
+void gpu_step(_6502* states, u32 steps, u32 num_blocks, u32 threads_per_block) {
+  step<<<num_blocks, threads_per_block>>>(states, steps, num_blocks * threads_per_block);
 }
 
 int main(int argc, char **argv) {
 
   cudaError_t err = cudaSuccess; // for checking CUDA errors
-
   int num_blocks = 1; int threads_per_block = 1;  int iters = 1; int steps = 32768;
-
   int num_threads = num_blocks * threads_per_block;
-
-  // tmp
 
   printf("  main: running %d blocks * %d threads (%d threads total)\n", num_blocks, threads_per_block, num_threads);
 
@@ -208,7 +214,7 @@ int main(int argc, char **argv) {
 
   // resetting all instances
   for (u32 i = 0; i < num_threads; i++) {
-    reset(&h_in_regs[i], 0x0600, 0xfe); memcpy(&h_in_regs[i].mem[0x600], prg, 66);
+    reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600], "sierp.bin");
   }
 
   // alloc gpu mem
@@ -219,13 +225,12 @@ int main(int argc, char **argv) {
   printf("  main: copying host -> device\n");
   err = cudaMemcpy(d_regs, h_in_regs, sizeof(_6502 ) * num_threads, cudaMemcpyHostToDevice);  CHECK_ERR_CUDA(err);
 
-
   for (int j = 0; j < iters; j++ ) {
 
     double start_time = get_time();
     cudaDeviceSynchronize();
     ///
-    step<<<num_blocks, threads_per_block>>>(d_regs, steps, num_threads);
+    gpu_step(d_regs, steps, num_blocks, threads_per_block);
     ///
     cudaDeviceSynchronize();
     double walltime = get_time() - start_time;
