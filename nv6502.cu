@@ -178,16 +178,28 @@ __device__ void *optable[256] = { // opcode -> functions map
   &_beq,&_sbc,&_nop,&_isb,&_nop,&_sbc,&_inc,&_isb,&_sed,&_sbc,&_nop,&_isb,&_nop,&_sbc,&_inc,&_isb
 };
 
+// use local mem? this is usually faster
+#define LMEM
+
 __global__ void step(_6502* states, int steps, int num_threads) {
   int i = blockDim.x * blockIdx.x + threadIdx.x; // thread idx
   if (i < num_threads) {
-    _6502 *n = &states[i]; // local ptr to the 6502 state
+#ifdef LMEM // use local memory
+    _6502 ln = states[i]; _6502 *n = &ln;
+#else       // operate directly on global mem
+    _6502 *n = &states[i];
+#endif
+
     for (int j = 0; j < steps; ++j) {
-      u8 op = f8(n); I = op; // fetch next byte
+      u8 op = f8(n); I = op;               // fetch next byte
       ((void(*)(_6502*))addrtable[op])(n); // decode addr mode
       ((void(*)(_6502*))  optable[op])(n); // execute
-      CY++;
+      CY++;                                // increment cycle count
     }
+
+#ifdef LMEM // update from local mem
+    states[i] = ln;
+#endif
   }
 }
 
