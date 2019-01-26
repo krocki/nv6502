@@ -3,6 +3,8 @@
 
 #include "typedefs.h"
 
+#define MEM_SIZE 0x1000 // size of private memory per cpu
+
 // a struct holding the complete state of one 6502 core
 typedef struct {
   // regs
@@ -12,7 +14,7 @@ typedef struct {
     struct { u8 C:1; u8 Z:1; u8 I:1; u8 D:1; u8 B:1; u8 u:1; u8 V:1; u8 S:1;};
     u8 P; // flags
   };
-  u8  mem[0x10000]; // 64kB of private mem space
+  u8  mem[MEM_SIZE];// private mem space
   u64 cyc;          // cycle counter
   u8  op;           // current opcode
   u8  op_mode;      // current addressing mode

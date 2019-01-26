@@ -33,8 +33,8 @@ __device__ __host__ void print_regs(u32 id, _6502 *n) { printf("[%05d] PC: %04x 
 #define LD_A_OR_M() u8 w=(m==1)?A:r8(n,d)
 #define ST_A_OR_M() if (m!=1) w8(n,d,w); else A=w;
 
-__device__ u8   r8    (_6502 *n, u16 a)       { return n->mem[a];    } // byte read
-__device__ void w8    (_6502 *n, u16 a, u8 v) { n->mem[a] = v;       } // byte write
+__device__ u8   r8    (_6502 *n, u16 a)       { return n->mem[a % MEM_SIZE];    } // byte read
+__device__ void w8    (_6502 *n, u16 a, u8 v) { n->mem[a % MEM_SIZE] = v;       } // byte write
 __device__ u8   f8    (_6502 *n)              { return r8(n, PC++);  } // byte fetch
 //// 16-bit versions
 __device__ u16  r16   (_6502 *n, u16 a)       { u16 base=a & 0xff00; return (r8(n,a) | (r8(n,base|((u8)(a+1))) << 8)); } // buggy
@@ -204,7 +204,7 @@ __global__ void step(_6502* states, int steps, int num_threads) {
 }
 
 void reset(_6502 *n, u16 _PC, u8 _SP) {
-  PC=_PC; A=0x00; X=0x00; P=0x24; SP=_SP; CY=0; memset(n->mem, '\0', 0x10000);
+  PC=_PC; A=0x00; X=0x00; P=0x24; SP=_SP; CY=0; memset(n->mem, '\0', MEM_SIZE);
 }
 
 // wrapper for CUDA call
