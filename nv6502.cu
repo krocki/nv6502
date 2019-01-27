@@ -7,6 +7,9 @@
 #include <sys/time.h>
 #define CHECK_ERR_CUDA(err) if (err != cudaSuccess) { printf("%s\n", cudaGetErrorString(err)); exit(EXIT_FAILURE); }
 
+void rand_bin(u8* mem, u8 len) { for (u16 i=0; i<len; i++) mem[i] = rand() % 256; }
+u32 fit(u8* mem, u16 len) { u32 f=0; for (u32 i=0; i<len; i++) {f+=mem[i];} return f; }
+
 int read_bin(u8* mem, const char* fname) {
   FILE * file = fopen(fname, "r+");
   if (file == NULL || mem == NULL) return - 1;
@@ -142,22 +145,22 @@ __device__ void _sre(_6502 *n) { _lsr(n); _eor(n); }
 __device__ void _rra(_6502 *n) { _ror(n); _adc(n); }
 
 __device__ void *addrtable[256] = {
-  &imp, &indx,&imp,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &acc,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpx,&zpx,&imp,&absy,&imp,&absy,&absx,&absx,&absx,&absx,
-  &abso,&indx,&imp,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &acc,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpx,&zpx,&imp,&absy,&imp,&absy,&absx,&absx,&absx,&absx,
-  &imp, &indx,&imp,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &acc,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpx,&zpx,&imp,&absy,&imp,&absy,&absx,&absx,&absx,&absx,
-  &imp, &indx,&imp,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &acc,&imm, &ind, &abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpx,&zpx,&imp,&absy,&imp,&absy,&absx,&absx,&absx,&absx,
-  &imm, &indx,&imm,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &imp,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpy,&zpy,&imp,&absy,&imp,&absy,&absx,&absx,&absy,&absy,
-  &imm, &indx,&imm,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &imp,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpy,&zpy,&imp,&absy,&imp,&absy,&absx,&absx,&absy,&absy,
-  &imm, &indx,&imm,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &imp,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpx,&zpx,&imp,&absy,&imp,&absy,&absx,&absx,&absx,&absx,
-  &imm, &indx,&imm,&indx,&zp, &zp, &zp, &zp, &imp,&imm, &imp,&imm, &abso,&abso,&abso,&abso,
-  &rel, &indy,&imp,&indy,&zpx,&zpx,&zpx,&zpx,&imp,&absy,&imp,&absy,&absx,&absx,&absx,&absx};
+  &imp, &indx,&imp, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &acc, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpx, &zpx, &imp, &absy,&imp, &absy,&absx,&absx,&absx,&absx,
+  &abso,&indx,&imp, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &acc, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpx, &zpx, &imp, &absy,&imp, &absy,&absx,&absx,&absx,&absx,
+  &imp, &indx,&imp, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &acc, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpx, &zpx, &imp, &absy,&imp, &absy,&absx,&absx,&absx,&absx,
+  &imp, &indx,&imp, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &acc, &imm, &ind, &abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpx, &zpx, &imp, &absy,&imp, &absy,&absx,&absx,&absx,&absx,
+  &imm, &indx,&imm, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &imp, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpy, &zpy, &imp, &absy,&imp, &absy,&absx,&absx,&absy,&absy,
+  &imm, &indx,&imm, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &imp, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpy, &zpy, &imp, &absy,&imp, &absy,&absx,&absx,&absy,&absy,
+  &imm, &indx,&imm, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &imp, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpx, &zpx, &imp, &absy,&imp, &absy,&absx,&absx,&absx,&absx,
+  &imm, &indx,&imm, &indx,&zp,  &zp,  &zp,  &zp,  &imp, &imm, &imp, &imm, &abso,&abso,&abso,&abso,
+  &rel, &indy,&imp, &indy,&zpx, &zpx, &zpx, &zpx, &imp, &absy,&imp, &absy,&absx,&absx,&absx,&absx};
 
 __device__ void *optable[256] = { // opcode -> functions map
   &_brk,&_ora,&_nop,&_slo,&_nop,&_ora,&_asl,&_slo,&_php,&_ora,&_asl,&_nop,&_nop,&_ora,&_asl,&_slo,
@@ -216,6 +219,11 @@ int main(int argc, char **argv) {
 
   cudaError_t err = cudaSuccess; // for checking CUDA errors
   int num_blocks = 1; int threads_per_block = 1;  int iters = 1; int steps = 32768;
+
+  if (argc >= 2) num_blocks = atoi(argv[1]);
+  if (argc >= 3) threads_per_block = atoi(argv[2]);
+  if (argc >= 4) iters = atoi(argv[3]);
+
   int num_threads = num_blocks * threads_per_block;
 
   printf("  main: running %d blocks * %d threads (%d threads total)\n", num_blocks, threads_per_block, num_threads);
@@ -224,17 +232,21 @@ int main(int argc, char **argv) {
   _6502    *h_in_regs   = (_6502 *) malloc(num_threads * sizeof(_6502));
   _6502    *h_out_regs  = (_6502 *) malloc(num_threads * sizeof(_6502));
 
+  u32      *fitness     = ( u32  *) malloc(num_threads * sizeof( u32 ));
   // resetting all instances
-  for (u32 i = 0; i < num_threads; i++) {
-    reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600], "sierp.bin");
-  }
+  //for (u32 i = 0; i < num_threads; i++) {
+  //  reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600], "sierp.bin");
+  //}
 
   // alloc gpu mem
   printf("  main: allocating %zu device bytes\n", num_threads * sizeof(_6502));
   _6502* d_regs = NULL;
   err = cudaMalloc((void **)&d_regs, num_threads * sizeof(_6502) ); CHECK_ERR_CUDA(err);
 
-  printf("  main: copying host -> device\n");
+  for (u32 i = 0; i < num_threads; i++) {
+    reset(&h_in_regs[i], 0x0600, 0xfe); rand_bin(&h_in_regs[i].mem[0x0600], 32);
+  }
+
   err = cudaMemcpy(d_regs, h_in_regs, sizeof(_6502 ) * num_threads, cudaMemcpyHostToDevice);  CHECK_ERR_CUDA(err);
 
   for (int j = 0; j < iters; j++ ) {
@@ -247,13 +259,43 @@ int main(int argc, char **argv) {
     cudaDeviceSynchronize();
     double walltime = get_time() - start_time;
     err = cudaGetLastError(); CHECK_ERR_CUDA(err);
-    printf("  main: kernel time = %.6f s, %2.6f us/step, %5.3f MHz\n", walltime,
-        1e6 * (walltime/(steps * num_threads)), ((steps * num_threads)/walltime)/1e6);
+    printf("  %5.1f MHz, %8.1f pr/s ; ", ((steps * num_threads)/walltime)/1e6, ((num_threads)/walltime));
 
-    printf("  main: copying device -> host\n");
+    //printf("  main: copying device -> host\n");
     err = cudaMemcpy(h_out_regs, d_regs, sizeof(_6502) * num_threads, cudaMemcpyDeviceToHost); CHECK_ERR_CUDA(err);
 
-    for (u32 i = 0; i < num_threads; i++) { print_regs(i, &h_out_regs[i]); print_scrn(i, &h_out_regs[i]); }
+    //for (u32 i = 0; i < num_threads; i++) { print_regs(i, &h_out_regs[i]); print_scrn(i, &h_out_regs[i]); }
+    double min_fit, max_fit, mean_fit = 0.0f;
+    u32    min_idx, max_idx;
+    for (u32 i = 0; i < num_threads; i++) {
+      fitness[i] = fit(&h_out_regs[i].mem[0x0200], 1024);
+      mean_fit += fitness[i]/(double)num_threads;
+      if (fitness[i] < min_fit || i==0) { min_idx = i; min_fit = fitness[i]; }
+      if (fitness[i] > max_fit || i==0) { max_idx = i; max_fit = fitness[i]; }
+    }
+    printf(" min: %8.1f (%d) mean %8.1f max %8.1f (%8d) ", min_fit, min_idx, mean_fit, max_fit, max_idx);
+    printf(" "); for (u8 i=0; i<32; i++) printf("%02x ", h_in_regs[i].mem[0x0600+i]);
+    printf("\n");
+    // crossover
+    for (u16 ii=0; ii<100; ii++) {
+      u32 r0 = rand() % num_threads; u32 r1 = rand() % num_threads;
+      if (fitness[max_idx] > mean_fit && fitness[r1] < mean_fit) {
+        //printf("%8d, r0 = %8d, r1 = %8d, f[%8d] = %8d; f[%8d] = %8d\n", ii, r0, r1, r0, fitness[r0], r1, fitness[r1]);
+        u8 p[32]; for (int jj=0; jj<32; jj++) h_in_regs[r1].mem[0x0600+jj] = h_in_regs[max_idx].mem[0x0600+jj];
+        u32 loc = rand() % 32; h_in_regs[r1].mem[0x0600 + loc] = rand() % 256;
+      }
+    }
+    // mutate
+    for (u16 ii=0; ii<10000; ii++) {
+      u32 r0 = rand() % num_threads; u32 loc = rand() % 32;
+      h_in_regs[r0].mem[0x0600 + loc] = rand() % 256;
+    }
+
+    for (u32 i = 0; i < num_threads; i++) {
+      u8 p[32]; for (int jj=0; jj<32; jj++) p[jj] = h_in_regs[i].mem[0x0600+jj];
+      reset(&h_in_regs[i], 0x0600, 0xfe); for (int jj=0; jj<32; jj++) h_in_regs[i].mem[0x0600+jj] = p[jj];
+    }
+    err = cudaMemcpy(d_regs, h_in_regs, sizeof(_6502 ) * num_threads, cudaMemcpyHostToDevice);  CHECK_ERR_CUDA(err);
   }
 
   printf("  main: freeing memory\n");
@@ -263,6 +305,7 @@ int main(int argc, char **argv) {
 
   // free host mem
   free(h_in_regs); free(h_out_regs);
+  free(fitness);
 
   printf("  main: done.\n");
 
