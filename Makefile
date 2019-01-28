@@ -8,6 +8,9 @@ all: nv6502.so nv6502
 nv6502.so: nv6502.cu nv6502.h Makefile
 	${NVCC} nv6502.cu ${NVCC_FLAGS} -shared -o $@
 
+ga: ga.cu nv6502.h Makefile
+	${NVCC} ga.cu ${NVCC_FLAGS} -o $@
+
 nv6502: nv6502.cu nv6502.h Makefile
 	${NVCC} nv6502.cu ${NVCC_FLAGS} -o $@
 
