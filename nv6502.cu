@@ -212,27 +212,39 @@ void gpu_step(_6502* states, u32 steps, u32 num_blocks, u32 threads_per_block) {
   step<<<num_blocks, threads_per_block>>>(states, steps, num_blocks * threads_per_block);
 }
 
-int main(int argc, char **argv) {
+cudaError_t err = cudaSuccess; // for checking CUDA errors
+_6502* d_regs = NULL;
+_6502    *h_in_regs;
+_6502    *h_out_regs;
+int num_blocks, threads_per_block, iters, steps, num_threads;
 
-  cudaError_t err = cudaSuccess; // for checking CUDA errors
-  int num_blocks = 1; int threads_per_block = 1;  int iters = 1; int steps = 32768;
-  int num_threads = num_blocks * threads_per_block;
+int init(int blks, int threads, int _iters, int _steps) {
 
-  printf("  main: running %d blocks * %d threads (%d threads total)\n", num_blocks, threads_per_block, num_threads);
+  num_blocks = blks; threads_per_block = threads;  iters = _iters; steps = _steps;
+  num_threads = num_blocks * threads_per_block;
 
   // allocate _6502 registers / state
-  _6502    *h_in_regs   = (_6502 *) malloc(num_threads * sizeof(_6502));
-  _6502    *h_out_regs  = (_6502 *) malloc(num_threads * sizeof(_6502));
+  h_in_regs   = (_6502 *) malloc(num_threads * sizeof(_6502));
+  h_out_regs  = (_6502 *) malloc(num_threads * sizeof(_6502));
 
+  printf("  main: allocating %zu device bytes\n", num_threads * sizeof(_6502));
+  err = cudaMalloc((void **)&d_regs, num_threads * sizeof(_6502) ); CHECK_ERR_CUDA(err);
+  return 0;
+}
+
+int teardown() {
+
+  err = cudaFree(d_regs); CHECK_ERR_CUDA(err);
+  free(h_in_regs); free(h_out_regs);
+  return 0;
+}
+
+int run(char* file) {
+  printf("  main: running %d blocks * %d threads (%d threads total)\n", num_blocks, threads_per_block, num_threads);
   // resetting all instances
   for (u32 i = 0; i < num_threads; i++) {
-    reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600], "sierp.bin");
+    reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600],file);
   }
-
-  // alloc gpu mem
-  printf("  main: allocating %zu device bytes\n", num_threads * sizeof(_6502));
-  _6502* d_regs = NULL;
-  err = cudaMalloc((void **)&d_regs, num_threads * sizeof(_6502) ); CHECK_ERR_CUDA(err);
 
   printf("  main: copying host -> device\n");
   err = cudaMemcpy(d_regs, h_in_regs, sizeof(_6502 ) * num_threads, cudaMemcpyHostToDevice);  CHECK_ERR_CUDA(err);
@@ -256,16 +268,12 @@ int main(int argc, char **argv) {
     for (u32 i = 0; i < num_threads; i++) { print_regs(i, &h_out_regs[i]); print_scrn(i, &h_out_regs[i]); }
   }
 
-  printf("  main: freeing memory\n");
-
-  // free gpu mem
-  err = cudaFree(d_regs); CHECK_ERR_CUDA(err);
-
-  // free host mem
-  free(h_in_regs); free(h_out_regs);
-
-  printf("  main: done.\n");
-
   return 0;
+}
+
+int main(int argc, void** argv) {
+  init(1,1,32,1024);
+  run("sierp.bin");
+  teardown();
 }
 
