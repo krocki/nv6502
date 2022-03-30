@@ -15,7 +15,7 @@ int read_bin(u8* mem, const char* fname) {
   fclose(file);
   file = fopen(fname, "r+");
   int bytes_read = fread(mem, sizeof(u8), size, file);
-  printf("read file %s, %d bytes\n", fname, bytes_read);
+  //printf("read file %s, %d bytes\n", fname, bytes_read);
   return 0; fclose(file);
 }
 
@@ -23,6 +23,9 @@ double get_time() {
   struct timeval tv; gettimeofday(&tv, NULL);
   return (tv.tv_sec + tv.tv_usec * 1e-6);
 }
+
+#define MAX_THREADS 256
+u8 mem[MAX_THREADS][0x1000];
 
 __device__ __host__ void print_scrn(u32 id, _6502 *n) { for (u8 i=0;i<32;i++) { for (u8 j=0;j<32;j++) { u8 v = n->mem[0x200 + j + 32*i]; if (v >= 0xa) printf("%02x ", v); else if (v > 0) printf("%2x ", v); else printf("__ "); }  printf("\n"); } }
 __device__ __host__ void print_regs(u32 id, _6502 *n) { printf("[%05d] PC: %04x OP: %02x, m: %2d, d: %04x, A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3ld\n", id, PC, I, m, d, A, X, Y, P, SP, CY); }
@@ -190,7 +193,7 @@ __global__ void step(_6502* states, int steps, int num_threads) {
     _6502 *n = &states[i];
 #endif
 
-    for (int j = 0; j < steps; ++j) {
+    for (int j = 0; j < n->max_cycles; ++j) {
       u8 op = f8(n); I = op;               // fetch next byte
       ((void(*)(_6502*))addrtable[op])(n); // decode addr mode
       ((void(*)(_6502*))  optable[op])(n); // execute
@@ -205,6 +208,7 @@ __global__ void step(_6502* states, int steps, int num_threads) {
 
 void reset(_6502 *n, u16 _PC, u8 _SP) {
   PC=_PC; A=0x00; X=0x00; P=0x24; SP=_SP; CY=0; memset(n->mem, '\0', MEM_SIZE);
+  n->max_cycles = (rand() % 5000 + 10);
 }
 
 // wrapper for CUDA call
@@ -212,13 +216,13 @@ void gpu_step(_6502* states, u32 steps, u32 num_blocks, u32 threads_per_block) {
   step<<<num_blocks, threads_per_block>>>(states, steps, num_blocks * threads_per_block);
 }
 
-int main(int argc, char **argv) {
+extern "C" {
+void run(int num_blocks, int threads_per_block, int steps, int iters, const char *name) {
 
   cudaError_t err = cudaSuccess; // for checking CUDA errors
-  int num_blocks = 1; int threads_per_block = 1;  int iters = 1; int steps = 32768;
   int num_threads = num_blocks * threads_per_block;
 
-  printf("  main: running %d blocks * %d threads (%d threads total)\n", num_blocks, threads_per_block, num_threads);
+  printf("  main: running %d blocks * %d threads (%d threads total), %d steps\n", num_blocks, threads_per_block, num_threads, steps);
 
   // allocate _6502 registers / state
   _6502    *h_in_regs   = (_6502 *) malloc(num_threads * sizeof(_6502));
@@ -226,7 +230,7 @@ int main(int argc, char **argv) {
 
   // resetting all instances
   for (u32 i = 0; i < num_threads; i++) {
-    reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600], "sierp.bin");
+    reset(&h_in_regs[i], 0x0600, 0xfe); read_bin(&h_in_regs[i].mem[0x0600], name);
   }
 
   // alloc gpu mem
@@ -253,7 +257,10 @@ int main(int argc, char **argv) {
     printf("  main: copying device -> host\n");
     err = cudaMemcpy(h_out_regs, d_regs, sizeof(_6502) * num_threads, cudaMemcpyDeviceToHost); CHECK_ERR_CUDA(err);
 
-    for (u32 i = 0; i < num_threads; i++) { print_regs(i, &h_out_regs[i]); print_scrn(i, &h_out_regs[i]); }
+    for (u32 i = 0; i < num_threads; i++) {
+      memcpy(mem[i], h_out_regs[i].mem, 0x1000);
+      //print_regs(i, &h_out_regs[i]); print_scrn(i, &h_out_regs[i]); }
+    }
   }
 
   printf("  main: freeing memory\n");
@@ -265,6 +272,23 @@ int main(int argc, char **argv) {
   free(h_in_regs); free(h_out_regs);
 
   printf("  main: done.\n");
+
+}
+}
+int main(int argc, char **argv) {
+
+  int num_blocks = 1; int threads_per_block = 1;  int iters = 1; int steps = 32768;
+
+  if (argc > 3) {
+    num_blocks = strtol(argv[1], NULL, 10);
+    threads_per_block = strtol(argv[2], NULL, 10);
+    steps = strtol(argv[3], NULL, 10);
+  } else {
+    printf("usage: %s blocks thread/block steps\n", argv[0]);
+    return -1;
+  }
+
+  run(num_blocks, threads_per_block, steps, iters, "sierp.bin");
 
   return 0;
 }

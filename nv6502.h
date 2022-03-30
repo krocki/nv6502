@@ -20,7 +20,7 @@ typedef struct {
   u8  op_mode;      // current addressing mode
   u8  op_bytes;     // how many arg bytes to fetch?
   u16 operand;      // arg bytes
-
+  u64 max_cycles;
 } _6502;
 
 #define SP (n->SP)

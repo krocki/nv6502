@@ -6,10 +6,10 @@ NVCC_FLAGS := -O2 --disable-warnings -ccbin gcc -Xcompiler -fPIC
 all: nv6502.so nv6502
 
 nv6502.so: nv6502.cu nv6502.h Makefile
-	${NVCC} nv6502.cu ${NVCC_FLAGS} -shared -o $@
+	${NVCC} -ccbin gcc nv6502.cu ${NVCC_FLAGS} -shared -o $@
 
 nv6502: nv6502.cu nv6502.h Makefile
-	${NVCC} nv6502.cu ${NVCC_FLAGS} -o $@
+	${NVCC} -ccbin gcc nv6502.cu ${NVCC_FLAGS} -o $@
 
 %.o: %.cu
 	${NVCC} ${NVCC_FLAGS} -o $@ -c $<
